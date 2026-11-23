@@ -167,7 +167,7 @@ const DIAS = ["Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sext
 const CURTO = ["S","T","Q","Q","S","S","D"];
 const ABREV = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
 const KEY = "rotinas-luci-v1";
-const VERSAO = "1.0";
+const VERSAO = "1.1";
 
 let S;
 function load(){ try{ const raw = localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){} return JSON.parse(JSON.stringify(SEED)); }
@@ -591,6 +591,21 @@ function restaurarBackup(b){
     save(); stack=[{v:"casas"}]; render(); toast("Backup restaurado.");
   });
 }
+/* Backup por link: o endereço traz a casa comprimida depois de #backup= (não vai para o servidor) */
+async function lerBackupDoLink(){
+  if(!location.hash.startsWith("#backup=")) return;
+  const cod=location.hash.slice(8);
+  history.replaceState(null,"",location.pathname);
+  try{
+    const b64=cod.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((cod.length+3)%4);
+    const bytes=Uint8Array.from(atob(b64),ch=>ch.charCodeAt(0));
+    const texto=await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+    restaurarBackup(JSON.parse(texto));
+  }catch(e){ console.error(e); toast("Esse link de backup está incompleto. Peça para mandarem de novo."); }
+}
+addEventListener("hashchange",lerBackupDoLink);
+setTimeout(lerBackupDoLink,300);
+
 /* Pede ao Android para não apagar os dados do app */
 try{ navigator.storage?.persist?.(); }catch(e){}
 if("serviceWorker" in navigator){ addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }

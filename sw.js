@@ -1,6 +1,6 @@
 // Guarda o app no celular para abrir sem internet.
 // Ao publicar uma versão nova, troque o número abaixo.
-const CACHE = "rotinas-v1";
+const CACHE = "rotinas-v2";
 const ARQUIVOS = [
   "./", "index.html", "manifest.webmanifest",
   "lib/jspdf.umd.min.js", "lib/html2canvas.min.js",
