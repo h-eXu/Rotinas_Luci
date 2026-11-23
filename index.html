@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rotinas · Luci Cordeiro</title>
+<meta name="theme-color" content="#001F54">
+<meta name="description" content="Rotinas das casas: pessoas, dias, tarefas e folhas para imprimir.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="img/icone-192.png">
+<link rel="apple-touch-icon" href="img/icone-192.png">
+<script src="lib/jspdf.umd.min.js" defer></script>
+<script src="lib/html2canvas.min.js" defer></script>
+</head>
+<body>
+<style>
+@font-face{font-family:"Questrial";src:url("fonts/questrial.woff2") format("woff2");font-display:swap}
+@font-face{font-family:"Marcellus";src:url("fonts/marcellus.woff2") format("woff2");font-display:swap}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{-webkit-text-size-adjust:100%}body{margin:0}[hidden]{display:none!important}img{max-width:100%}
+/* Layout: app de uma coluna para celular; barra azul-marinho no topo, listas tocáveis, folhas inferiores para escolher */
+:root{
+  --navy:#001F54; --gold:#D4AF37; --gold-ink:#8A6E14;
+  --bg:#F6F5F1; --surface:#FFFFFF; --ink:#14203A; --muted:#5E6678; --line:#E2DED3;
+  --chip:#EFEBDF; --chip-on:#001F54; --chip-on-ink:#FFFFFF; --danger:#B3261E;
+  --bar:#001F54; --bar-ink:#FFFFFF;
+  --f-display:"Marcellus", "Times New Roman", serif;
+  --f-body:"Questrial", "Helvetica Neue", Arial, sans-serif;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0B1430; --surface:#121D3F; --ink:#ECEAE3; --muted:#A4ABBD; --line:#26335C;
+  --chip:#1B2850; --chip-on:#D4AF37; --chip-on-ink:#0B1430; --gold-ink:#D4AF37; --danger:#FF8A80;
+  --bar:#060E26; --bar-ink:#F3F1EA; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0B1430; --surface:#121D3F; --ink:#ECEAE3; --muted:#A4ABBD; --line:#26335C;
+  --chip:#1B2850; --chip-on:#D4AF37; --chip-on-ink:#0B1430; --gold-ink:#D4AF37; --danger:#FF8A80;
+  --bar:#060E26; --bar-ink:#F3F1EA; color-scheme:dark }
+
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.4}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bar)}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;width:100%}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bar);color:var(--bar-ink);
+  display:flex;align-items:center;gap:10px;min-height:58px;
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+.bar h1{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .sub{display:block;font-family:var(--f-body);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+.iconbtn{background:none;border:0;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:inherit;flex:none}
+.iconbtn:active{background:rgba(255,255,255,.12)}
+.brand{height:40px;width:auto;flex:none}
+
+main{max-width:640px;margin:0 auto;padding-block:16px 120px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:16px}
+.hint{color:var(--muted);font-size:14px;margin:0}
+.label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-ink);margin:8px 0 0}
+
+.list{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:14px 14px;border:0;border-top:1px solid var(--line);background:none;text-align:left;width:100%;min-height:60px}
+.row:first-child{border-top:0}
+.row:active{background:var(--chip)}
+.row .t{flex:1;min-width:0}
+.row .t b{display:block;font-weight:400;font-size:17px}
+.row .t small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.chev{color:var(--muted);flex:none}
+.days-mini{display:flex;gap:3px;margin-top:6px;flex-wrap:wrap}
+.days-mini span{font-size:11px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--chip);color:var(--muted)}
+.days-mini span.on{background:var(--chip-on);color:var(--chip-on-ink)}
+
+.btn{border:0;border-radius:999px;padding:14px 20px;font-size:16px;background:var(--navy);color:#fff;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:50px}
+:root[data-theme="dark"] .btn{background:var(--gold);color:#0B1430}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn{background:var(--gold);color:#0B1430}}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.block{width:100%}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid var(--line)}
+.btn[disabled]{opacity:.45}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+.actions .btn{flex:1 1 160px}
+
+.fab{position:fixed;right:max(16px,calc(env(safe-area-inset-right,0px) + 16px));bottom:calc(env(safe-area-inset-bottom,0px) + 20px);z-index:15;
+  border:0;border-radius:999px;background:var(--gold);color:#0B1430;padding:16px 22px;font-size:16px;box-shadow:0 6px 20px rgba(0,31,84,.28);display:flex;gap:8px;align-items:center}
+
+/* chips de dia, no estilo do alarme do celular */
+.week{display:flex;justify-content:space-between;gap:6px}
+.day{flex:1;aspect-ratio:1;max-width:52px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:15px;display:grid;place-items:center}
+.day.on{background:var(--chip-on);color:var(--chip-on-ink);border-color:var(--chip-on)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:10px 14px;font-size:15px}
+.chip.on{background:var(--chip-on);color:var(--chip-on-ink);border-color:var(--chip-on)}
+
+/* abas de dias na tela da pessoa */
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.tab{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 12px;text-align:center;min-width:64px}
+.tab small{display:block;font-size:11px;color:var(--muted)}
+.tab.on{background:var(--chip-on);color:var(--chip-on-ink);border-color:var(--chip-on)}
+.tab.on small{color:inherit;opacity:.8}
+
+.task{display:flex;align-items:flex-start;gap:8px;padding:10px 8px 10px 14px;border-top:1px solid var(--line)}
+.task:first-child{border-top:0}
+.task .txt{flex:1;min-width:0;padding-top:10px}
+.task.hl .txt{font-weight:700}
+.task .tools{display:flex;flex:none}
+.task .iconbtn{width:40px;height:40px;color:var(--muted)}
+.task .iconbtn.on{color:var(--gold-ink)}
+.empty{padding:22px 16px;text-align:center;color:var(--muted)}
+
+/* folha inferior */
+.sheet-wrap{position:fixed;inset:0;z-index:40;background:rgba(0,10,30,.45);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:640px;max-height:92%;border-radius:18px 18px 0 0;display:flex;flex-direction:column;
+  padding-bottom:env(safe-area-inset-bottom,0px)}
+.sheet header{padding:14px max(16px,env(safe-area-inset-right,0px)) 8px max(16px,env(safe-area-inset-left,0px));display:flex;align-items:center;gap:8px}
+.sheet header h2{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0;flex:1}
+.sheet .body{overflow-y:auto;padding:4px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:12px}
+.sheet footer{padding:12px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.check{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer}
+.check:first-child{border-top:0}
+.check input{width:22px;height:22px;flex:none;margin:1px 0 0;accent-color:var(--navy)}
+.check.used{color:var(--muted)}
+.check small{display:block;font-size:12px;color:var(--muted)}
+
+/* quadros de cor */
+.swatches{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sw{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow:hidden;text-align:left;padding:0}
+.sw .c{height:64px;display:grid;place-items:center;padding:6px;font-size:13px;text-align:center;text-transform:uppercase;letter-spacing:.04em}
+.sw .r{padding:8px 10px;font-size:13px;color:var(--muted);min-height:36px}
+
+/* prévia da folha A4 */
+.paper-wrap{background:#D9D6CC;border-radius:var(--r);padding:12px;overflow:hidden}
+.paper-scale{transform-origin:top left}
+.paper{width:794px;height:1123px;background:#fff;color:#111;padding:30px 30px 26px;display:flex;flex-direction:column;font-family:Arial,Helvetica,sans-serif;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+.paper .ph{display:flex;align-items:center;gap:18px;padding-bottom:10px;border-bottom:2px solid #D4AF37;margin-bottom:12px}
+.paper .ph img{height:74px;width:auto}
+.paper .ph .h{flex:1;text-align:right}
+.paper .ph .h b{display:block;font-family:"Marcellus",serif;font-weight:400;font-size:24px;color:#001F54}
+.paper .ph .h span{font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#444}
+.paper .tbl{flex:1;display:flex;flex-direction:column;border:1px solid #888;min-height:0}
+.paper .tr{display:flex;border-top:1px solid #888;flex:1 1 auto}
+.paper .tr:first-child{border-top:0}
+.paper .td-d{width:150px;flex:none;background:#EDEDED;border-right:1px solid #888;display:flex;align-items:center;padding:0 10px;font-weight:700;font-size:13px;text-transform:uppercase}
+.paper .td-d small{display:block;font-weight:400;text-transform:none}
+.paper .td-t{flex:1;padding:6px 10px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.paper .td-t div{line-height:1.3}
+.paper .td-t .b{font-weight:700}
+.paper .grid{display:grid;grid-template-columns:1fr 1fr;gap:26px 60px;padding:20px 40px}
+.paper .gbox{height:96px;display:grid;place-items:center;text-align:center;font-weight:700;font-size:15px;text-transform:uppercase;padding:8px;border:2px solid transparent}
+.paper .gfn{margin-top:8px;border-bottom:1px solid #777;font-size:14px;color:#555;padding-bottom:3px}
+.paper .gfn b{color:#111}
+.fitnote{font-size:13px;color:var(--muted)}
+.fitnote.warn{color:var(--danger)}
+.badge{display:inline-block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;background:var(--gold);color:#0B1430;border-radius:999px;padding:3px 8px}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.4}}}
+</style>
+
+<div id="app"></div>
+
+<script>
+/* ============ Dados ============ */
+const SEED = {funcoes:["Babá","Arrumadeira","Camareira","Cozinheira","Copeira","Lavanderia / Passadoria","Faxineira","Motorista","Jardineiro","Governanta"].map((nome,i)=>({id:"f"+i,nome})), tarefas:[], casas:[]};
+const LOGO_AZUL = "img/logo-azul.png";
+const LOGO_DOURADO = "img/logo-dourado.png";
+const DIAS = ["Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado","Domingo"];
+const CURTO = ["S","T","Q","Q","S","S","D"];
+const ABREV = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+const KEY = "rotinas-luci-v1";
+const VERSAO = "1.0";
+
+let S;
+function load(){ try{ const raw = localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){} return JSON.parse(JSON.stringify(SEED)); }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+S = load();
+
+const uid = p => p + Math.random().toString(36).slice(2,8);
+const esc = s => String(s??"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const casa = id => S.casas.find(c => c.id === id);
+const funcao = id => S.funcoes.find(f => f.id === id);
+const nomePessoa = p => (funcao(p.funcao)?.nome || "Função") + (p.ident ? " – " + p.ident : "");
+
+/* Ordem dos dias na folha: começa depois da maior folga (ex.: qui, sex, sáb, dom, seg) */
+function ordemDias(dias){
+  const set = new Set(dias); if(set.size === 0) return [];
+  if(set.size === 7) return [0,1,2,3,4,5,6];
+  let melhor = 0, maior = -1;
+  for(let i=0;i<7;i++){ if(!set.has(i)) continue;
+    let gap=0, j=(i+6)%7; while(!set.has(j) && gap<7){ gap++; j=(j+6)%7; }
+    if(gap>maior){ maior=gap; melhor=i; } }
+  const out=[]; for(let k=0;k<7;k++){ const d=(melhor+k)%7; if(set.has(d)) out.push(d); } return out;
+}
+function rotuloDia(p,d){ return DIAS[d] + (p.rotulos?.[d] ? " (" + p.rotulos[d] + ")" : ""); }
+/* Garante que toda tarefa usada também exista no banco */
+function noBanco(texto){ const t=texto.trim(); if(!t) return; if(!S.tarefas.some(x=>x.texto.toLowerCase()===t.toLowerCase())) S.tarefas.push({id:uid("t"),texto:t}); }
+
+/* ============ Navegação ============ */
+let stack = [{v:"casas"}];
+let ui = {};               // estado temporário da tela (aba aberta etc.)
+const go = (view) => { stack.push(view); ui = {}; render(); scrollTo(0,0); };
+const back = () => { if(stack.length>1) stack.pop(); ui = {}; render(); scrollTo(0,0); };
+const cur = () => stack[stack.length-1];
+
+const ICON = {
+  back:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>',
+  chev:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>',
+  plus:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>',
+  up:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 15l6-6 6 6"/></svg>',
+  x:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  star:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/></svg>',
+  starO:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/></svg>',
+  more:'<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+  print:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z"/></svg>',
+  book:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 5v16"/></svg>'
+};
+
+function bar(title, sub, opts={}){
+  const left = stack.length>1 ? `<button class="iconbtn" data-a="back" aria-label="Voltar">${ICON.back}</button>`
+                              : `<img class="brand" src="${LOGO_DOURADO}" alt="Luci Cordeiro">`;
+  return `<header class="bar">${left}<h1>${sub?`<span class="sub">${esc(sub)}</span>`:""}${esc(title)}</h1>${opts.right||""}</header>`;
+}
+
+/* ============ Telas ============ */
+function vCasas(){
+  const itens = S.casas.map(c=>`<button class="row" data-a="casa" data-id="${c.id}">
+      <span class="t"><b>${esc(c.nome)}</b><small>${c.pessoas.length} ${c.pessoas.length===1?"folha":"folhas"} · ${c.quadros.length} quadros de cor</small></span><span class="chev">${ICON.chev}</span></button>`).join("");
+  return bar("Casas", "Rotinas", {right:`<button class="iconbtn" data-a="bancos" aria-label="Bancos de funções e tarefas">${ICON.book}</button><button class="iconbtn" data-a="menu-app" aria-label="Mais opções">${ICON.more}</button>`}) +
+  `<main>
+    <div class="list">${itens || '<div class="empty">Nenhuma casa ainda.</div>'}</div>
+    ${S.casas.length?"":'<button class="btn ghost" data-a="restaurar">Restaurar backup</button>'}
+  </main>
+  <button class="fab" data-a="nova-casa">${ICON.plus} Nova casa</button>`;
+}
+
+function vCasa(){
+  const c = casa(cur().id);
+  const pessoas = c.pessoas.map(p=>{
+    const ord = ordemDias(p.dias);
+    const n = ord.reduce((a,d)=>a+(p.tarefas[d]?.length||0),0);
+    return `<button class="row" data-a="pessoa" data-id="${p.id}">
+      <span class="t"><b>${esc(nomePessoa(p))}</b><small>${n} tarefas na semana</small>
+      <span class="days-mini">${[0,1,2,3,4,5,6].map(d=>`<span class="${p.dias.includes(d)?"on":""}">${CURTO[d]}</span>`).join("")}</span></span>
+      <span class="chev">${ICON.chev}</span></button>`;}).join("");
+  const quadros = c.quadros.map(q=>`<button class="row" data-a="quadro" data-id="${q.id}">
+      <span class="t"><b>${esc(q.nome)}</b><small>${q.itens.length} cores</small></span><span class="chev">${ICON.chev}</span></button>`).join("");
+  return bar(c.nome, "Casa", {right:`<button class="iconbtn" data-a="menu-casa" aria-label="Opções da casa">${ICON.more}</button>`}) +
+  `<main>
+    <p class="label">Pessoas</p>
+    <div class="list">${pessoas || '<div class="empty">Nenhuma pessoa ainda.</div>'}</div>
+    <p class="label">Quadros de cor</p>
+    <div class="list">${quadros}</div>
+    <button class="btn block" data-a="imprimir">${ICON.print} Imprimir</button>
+  </main>
+  <button class="fab" data-a="nova-pessoa">${ICON.plus} Nova pessoa</button>`;
+}
+
+function vPessoa(){
+  const c = casa(cur().casa), p = c.pessoas.find(x=>x.id===cur().id);
+  const ord = ordemDias(p.dias);
+  if(ui.dia===undefined || !p.dias.includes(ui.dia)) ui.dia = ord[0];
+  const d = ui.dia;
+  const lista = (d!==undefined ? (p.tarefas[d] ||= []) : []);
+  const tabs = ord.map(x=>`<button class="tab ${x===d?"on":""}" data-a="dia" data-d="${x}">${ABREV[x]}<small>${(p.tarefas[x]||[]).length} tarefas</small></button>`).join("");
+  const tarefas = lista.map((t,i)=>`<div class="task ${t.d?"hl":""}">
+      <span class="txt">${esc(t.t)}</span>
+      <span class="tools">
+        <button class="iconbtn ${t.d?"on":""}" data-a="destaque" data-i="${i}" aria-label="Destacar em negrito">${t.d?ICON.star:ICON.starO}</button>
+        <button class="iconbtn" data-a="subir" data-i="${i}" aria-label="Mover para cima" ${i===0?"disabled":""}>${ICON.up}</button>
+        <button class="iconbtn" data-a="tirar" data-i="${i}" aria-label="Tirar do dia">${ICON.x}</button>
+      </span></div>`).join("");
+  return bar(nomePessoa(p), c.nome, {right:`<button class="iconbtn" data-a="imprimir-pessoa" aria-label="Imprimir">${ICON.print}</button><button class="iconbtn" data-a="menu-pessoa" aria-label="Opções da pessoa">${ICON.more}</button>`}) +
+  `<main>
+    ${ord.length ? `<div class="tabs" role="tablist">${tabs}</div>
+    <p class="label">${esc(rotuloDia(p,d))}</p>
+    <div class="list">${tarefas || '<div class="empty">Nenhuma tarefa neste dia.</div>'}</div>
+    <div class="actions">
+      <button class="btn ghost" data-a="copiar-dia">Copiar dia</button>
+      <button class="btn ghost" data-a="rotulo-dia">Observação</button>
+    </div>` : `<div class="empty">Sem dias de trabalho.</div>`}
+  </main>
+  ${ord.length?`<button class="fab" data-a="add-tarefas">${ICON.plus} Tarefas</button>`:""}`;
+}
+
+function vQuadro(){
+  const c = casa(cur().casa), q = c.quadros.find(x=>x.id===cur().id);
+  const sw = q.itens.map((it,i)=>`<button class="sw" data-a="item-quadro" data-i="${i}">
+     <div class="c" style="background:${it.cor};color:${ink(it.cor)};${it.cor.toUpperCase()==="#FFFFFF"?"border-bottom:1px solid #ccc":""}">${esc(it.uso)||"&nbsp;"}</div>
+     <div class="r">Função: ${esc(it.resp)||"—"}</div></button>`).join("");
+  return bar(q.nome, c.nome) + `<main>
+    <div class="swatches">${sw}</div>
+  </main>
+  <button class="fab" data-a="nova-cor">${ICON.plus} Nova cor</button>`;
+}
+
+function vBancos(){
+  const aba = ui.aba || "tarefas";
+  const q = (ui.q||"").toLowerCase();
+  const tarefas = S.tarefas.filter(t=>t.texto.toLowerCase().includes(q))
+     .sort((a,b)=>a.texto.localeCompare(b.texto,"pt"))
+     .map(t=>`<button class="row" data-a="edit-tarefa-banco" data-id="${t.id}"><span class="t">${esc(t.texto)}</span></button>`).join("");
+  const funcoes = S.funcoes.map(f=>`<button class="row" data-a="edit-funcao" data-id="${f.id}"><span class="t"><b>${esc(f.nome)}</b></span></button>`).join("");
+  return bar("Bancos", "Rotinas") + `<main>
+    <div class="chips"><button class="chip ${aba==="tarefas"?"on":""}" data-a="aba" data-x="tarefas">Tarefas (${S.tarefas.length})</button>
+    <button class="chip ${aba==="funcoes"?"on":""}" data-a="aba" data-x="funcoes">Funções (${S.funcoes.length})</button></div>
+    ${aba==="tarefas" ? `<input id="busca-banco" type="search" placeholder="Procurar tarefa" value="${esc(ui.q||"")}">
+      <div class="list">${tarefas||'<div class="empty">Nada encontrado.</div>'}</div>`
+    : `<div class="list">${funcoes}</div>`}
+  </main>
+  <button class="fab" data-a="${aba==="tarefas"?"nova-tarefa-banco":"nova-funcao"}">${ICON.plus} ${aba==="tarefas"?"Nova tarefa":"Nova função"}</button>`;
+}
+
+function vImprimir(){
+  const c = casa(cur().id);
+  const folhas = listaFolhas(c);
+  if(ui.i===undefined) ui.i = cur().i||0;
+  ui.i = Math.min(ui.i, folhas.length-1);
+  const f = folhas[ui.i];
+  const chips = folhas.map((x,i)=>`<button class="chip ${i===ui.i?"on":""}" data-a="folha" data-i="${i}">${i+1}. ${esc(x.tipo==="p"?nomePessoa(x.p):x.q.nome)}</button>`).join("");
+  return bar("Imprimir", c.nome) + `<main>
+    <div class="chips">${chips}</div>
+    <div class="paper-wrap" id="pw"><div class="paper-scale" id="ps">${f.tipo==="p"?paperPessoa(c,f.p):paperQuadro(c,f.q)}</div></div>
+    <p class="fitnote" id="fit"></p>
+    <button class="btn block" data-a="pdf">Compartilhar</button>
+  </main>`;
+}
+
+/* ============ Folha A4 ============ */
+function paperHead(c, titulo){
+  return `<div class="ph"><img src="${LOGO_AZUL}" alt=""><div class="h"><b>${esc(c.nome)}</b><span>${esc(titulo)}</span></div></div>`;
+}
+function paperPessoa(c,p){
+  const ord = ordemDias(p.dias);
+  const rows = ord.map(d=>{
+    const ts=(p.tarefas[d]||[]);
+    return `<div class="tr" style="flex-grow:${Math.max(ts.length,3)}"><div class="td-d"><span>${DIAS[d]}${p.rotulos?.[d]?`<small>(${esc(p.rotulos[d])})</small>`:""}</span></div>
+    <div class="td-t">${ts.map(t=>`<div class="${t.d?"b":""}">${esc(t.t)}</div>`).join("")}</div></div>`;}).join("");
+  return `<div class="paper" id="paper">${paperHead(c,"Rotinas: "+nomePessoa(p))}<div class="tbl" id="tbl">${rows}</div></div>`;
+}
+function paperQuadro(c,q){
+  const g = q.itens.map(it=>`<div><div class="gbox" style="background:${it.cor};color:${ink(it.cor)};${it.cor.toUpperCase()==="#FFFFFF"?"border-color:#888":""}">${esc(it.uso)}</div>
+    <div class="gfn">Função: <b>${esc(it.resp)}</b></div></div>`).join("");
+  return `<div class="paper" id="paper">${paperHead(c,q.nome)}<div class="grid">${g}</div></div>`;
+}
+/* Ajuste automático: reduz a letra até a tabela caber numa página */
+function fitPaper(){
+  const pw=document.getElementById("pw"), ps=document.getElementById("ps"), tbl=document.getElementById("tbl"), note=document.getElementById("fit");
+  if(!pw) return;
+  const scale = Math.min(1,(pw.clientWidth-24)/794);
+  ps.style.transform=`scale(${scale})`; ps.style.width="794px"; pw.style.height=(1123*scale+24)+"px";
+  if(!tbl){ note.textContent="1 página"; note.className="fitnote"; return; }
+  const r=ajustar(tbl); const fs=r.fs;
+  const pt=(fs*0.75).toFixed(1).replace(".",",");
+  if(r.ok){ note.textContent=`1 página · letra ${pt} pt`; note.className="fitnote"; }
+  else { note.textContent="Não cabe em 1 página. Tire alguma tarefa."; note.className="fitnote warn"; }
+}
+function ink(hex){ const h=hex.replace("#",""); const r=parseInt(h.substr(0,2),16),g=parseInt(h.substr(2,2),16),b=parseInt(h.substr(4,2),16);
+  return (0.299*r+0.587*g+0.114*b)>165 ? "#111" : "#fff"; }
+
+/* ============ Folhas inferiores (escolhas e confirmações) ============ */
+let sheetEl=null;
+function sheet(title, body, footer, onMount){
+  closeSheet();
+  sheetEl=document.createElement("div"); sheetEl.className="sheet-wrap";
+  sheetEl.innerHTML=`<div class="sheet" role="dialog" aria-label="${esc(title)}"><header><h2>${esc(title)}</h2><button class="iconbtn" data-s="close" aria-label="Fechar">${ICON.x}</button></header><div class="body">${body}</div>${footer?`<footer>${footer}</footer>`:""}</div>`;
+  sheetEl.addEventListener("click",e=>{ if(e.target===sheetEl || e.target.closest('[data-s="close"]')) closeSheet(); });
+  document.body.appendChild(sheetEl); onMount && onMount(sheetEl);
+}
+function closeSheet(){ if(sheetEl){ sheetEl.remove(); sheetEl=null; } }
+function confirmar(texto, botao, fn){
+  sheet("Confirmar", `<p>${esc(texto)}</p>`, `<button class="btn danger block" id="ok">${esc(botao)}</button><button class="btn ghost block" data-s="close">Cancelar</button>`,
+    el=>el.querySelector("#ok").onclick=()=>{ closeSheet(); fn(); });
+}
+function weekPicker(sel, id){ return `<div class="week" id="${id}">${[0,1,2,3,4,5,6].map(d=>`<button type="button" class="day ${sel.includes(d)?"on":""}" data-d="${d}" aria-pressed="${sel.includes(d)}" aria-label="${DIAS[d]}">${CURTO[d]}</button>`).join("")}</div>`; }
+function bindWeek(el,id,sel){ el.querySelectorAll(`#${id} .day`).forEach(b=>b.onclick=()=>{ const d=+b.dataset.d; const i=sel.indexOf(d); i<0?sel.push(d):sel.splice(i,1); b.classList.toggle("on"); b.setAttribute("aria-pressed",i<0); }); }
+
+/* Escolher tarefas do banco, com caixas de marcar */
+function sheetTarefas(c,p){
+  const marcadas=new Set(); const dias=[ui.dia]; let q="";
+  const jaNoDia = new Set((p.tarefas[ui.dia]||[]).map(t=>t.t.toLowerCase()));
+  const lista=()=>S.tarefas.filter(t=>t.texto.toLowerCase().includes(q)).sort((a,b)=>a.texto.localeCompare(b.texto,"pt")).map(t=>{
+     const usada=jaNoDia.has(t.texto.toLowerCase());
+     return `<label class="check ${usada?"used":""}"><input type="checkbox" value="${t.id}" ${marcadas.has(t.id)?"checked":""}><span>${esc(t.texto)}${usada?`<small>Já está em ${ABREV[ui.dia]}</small>`:""}</span></label>`;}).join("") || '<div class="empty">Nada encontrado.</div>';
+  const body=`<input id="q" type="search" placeholder="Procurar">
+    <div class="list" id="ls">${lista()}</div>
+    <p class="label">Tarefa nova</p>
+    <input id="nova" placeholder="Ex.: Regar as plantas da varanda">`;
+  const foot=`<p class="label" style="margin:0">Colocar em</p>${weekPicker(dias,"wk")}
+    <div class="chips"><button class="chip" id="todos">Todos os dias dela</button></div>
+    <button class="btn block" id="add">Adicionar</button>`;
+  sheet("Tarefas para "+nomePessoa(p), body, foot, el=>{
+    const ls=el.querySelector("#ls"), btn=el.querySelector("#add");
+    const upd=()=>{ const n=marcadas.size+(el.querySelector("#nova").value.trim()?1:0); btn.textContent = n?`Adicionar ${n} ${n===1?"tarefa":"tarefas"}`:"Adicionar"; btn.disabled=!n||!dias.length; };
+    ls.addEventListener("change",e=>{ const v=e.target.value; e.target.checked?marcadas.add(v):marcadas.delete(v); upd(); });
+    el.querySelector("#q").oninput=e=>{ q=e.target.value.toLowerCase(); ls.innerHTML=lista(); };
+    el.querySelector("#nova").oninput=upd;
+    bindWeek(el,"wk",dias); el.querySelector("#wk").addEventListener("click",upd);
+    el.querySelector("#todos").onclick=()=>{ dias.splice(0,dias.length,...p.dias); el.querySelectorAll("#wk .day").forEach(b=>{ const on=p.dias.includes(+b.dataset.d); b.classList.toggle("on",on); }); upd(); };
+    upd();
+    btn.onclick=()=>{
+      const textos=[...marcadas].map(id=>S.tarefas.find(t=>t.id===id).texto);
+      const nova=el.querySelector("#nova").value.trim(); if(nova){ noBanco(nova); textos.push(nova); }
+      let pulou=0;
+      dias.filter(d=>p.dias.includes(d)).forEach(d=>{ const l=(p.tarefas[d] ||= []);
+        textos.forEach(t=>{ if(l.some(x=>x.t.toLowerCase()===t.toLowerCase())) pulou++; else l.push({t,d:false}); }); });
+      save(); closeSheet(); render();
+      if(pulou) toast(`${pulou} ${pulou===1?"tarefa já estava":"tarefas já estavam"} no dia e não foi repetida.`);
+    };
+  });
+}
+
+/* Criar ou editar pessoa: função do banco + identificação + dias (como alarme) */
+function sheetPessoa(c,p){
+  const novo=!p; const dias = p?[...p.dias]:[0,1,2,3,4]; let fn = p?p.funcao:S.funcoes[0].id;
+  const body=`<p class="label" style="margin:0">Função</p>
+    <div class="chips" id="fns">${S.funcoes.map(f=>`<button class="chip ${f.id===fn?"on":""}" data-f="${f.id}">${esc(f.nome)}</button>`).join("")}</div>
+    <p class="label">Identificação (opcional)</p>
+    <input id="ident" placeholder="Ex.: Babá 1, Fim de semana, Maria" value="${esc(p?.ident||"")}">
+    <p class="label">Dias de trabalho</p>${weekPicker(dias,"wk")}
+    <div class="chips"><button class="chip" id="todos">Todos os dias</button><button class="chip" id="util">Segunda a sexta</button></div>`;
+  sheet(novo?"Nova pessoa":"Função e dias", body, `<button class="btn block" id="ok">${novo?"Criar folha":"Salvar"}</button>`, el=>{
+    el.querySelectorAll("#fns .chip").forEach(b=>b.onclick=()=>{ fn=b.dataset.f; el.querySelectorAll("#fns .chip").forEach(x=>x.classList.toggle("on",x===b)); });
+    bindWeek(el,"wk",dias);
+    const setDias=a=>{ dias.splice(0,dias.length,...a); el.querySelectorAll("#wk .day").forEach(b=>b.classList.toggle("on",a.includes(+b.dataset.d))); };
+    el.querySelector("#todos").onclick=()=>setDias([0,1,2,3,4,5,6]);
+    el.querySelector("#util").onclick=()=>setDias([0,1,2,3,4]);
+    el.querySelector("#ok").onclick=()=>{
+      if(!dias.length){ toast("Escolha pelo menos um dia."); return; }
+      const ident=el.querySelector("#ident").value.trim();
+      if(novo){ const np={id:uid("p"),funcao:fn,ident,dias:dias.sort(),rotulos:{},tarefas:{}}; c.pessoas.push(np); save(); closeSheet(); go({v:"pessoa",casa:c.id,id:np.id}); }
+      else { p.funcao=fn; p.ident=ident; p.dias=dias.sort(); save(); closeSheet(); render(); }
+    };
+  });
+}
+
+let toastT;
+function toast(msg){ let t=document.getElementById("toast"); if(!t){ t=document.createElement("div"); t.id="toast";
+  t.style.cssText="position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 90px);z-index:60;background:var(--ink);color:var(--bg);padding:12px 16px;border-radius:12px;max-width:min(92vw,480px);font-size:14px";
+  t.setAttribute("role","status"); document.body.appendChild(t);} t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true,3200); }
+
+/* ============ Ações ============ */
+const A = {
+  back,
+  "menu-app":()=>sheet("Rotinas",`<p class="hint">Versão ${VERSAO}</p>`,`<button class="btn block" id="bk">Fazer backup</button><button class="btn ghost block" id="rs">Restaurar backup</button>`, el=>{
+     el.querySelector("#bk").onclick=()=>{ closeSheet(); fazerBackup(); };
+     el.querySelector("#rs").onclick=()=>{ closeSheet(); A.restaurar(); }; }),
+  restaurar:()=>{ const inp=document.createElement("input"); inp.type="file"; inp.accept=".json,application/json";
+     inp.onchange=()=>{ const f=inp.files[0]; if(!f) return; const r=new FileReader();
+       r.onload=()=>{ try{ restaurarBackup(JSON.parse(r.result)); }catch(e){ toast("Esse arquivo não é um backup do Rotinas."); } }; r.readAsText(f); };
+     inp.click(); },
+  casa:b=>go({v:"casa",id:b.dataset.id}),
+  bancos:()=>go({v:"bancos"}),
+  "nova-casa":()=>sheet("Nova casa",`<p class="label" style="margin:0">Nome</p><input id="n" placeholder="Ex.: Residência Sr. Paulo Lima">
+     <p class="label">Começar com</p><div class="chips" id="mod"><button class="chip on" data-m="vazia">Casa vazia</button>${S.casas.map(c=>`<button class="chip" data-m="${c.id}">Cópia de ${esc(c.nome)}</button>`).join("")}</div>
+`,
+     `<button class="btn block" id="ok">Criar casa</button>`, el=>{
+       let m="vazia"; el.querySelectorAll("#mod .chip").forEach(b=>b.onclick=()=>{ m=b.dataset.m; el.querySelectorAll("#mod .chip").forEach(x=>x.classList.toggle("on",x===b)); });
+       el.querySelector("#ok").onclick=()=>{ const nome=el.querySelector("#n").value.trim()||"Nova casa";
+         let nc; if(m==="vazia") nc={id:uid("c"),nome,obs:"",pessoas:[],quadros:[
+            {id:uid("q"),nome:"Panos de limpeza",itens:["#2E9E4F","#E0475B","#F2D21B","#1F6FB8"].map(cor=>({cor,uso:"",resp:""}))},
+            {id:uid("q"),nome:"Esponjas de limpeza",itens:["#2E86C9","#4250A8","#F0A050","#5B8DB5"].map(cor=>({cor,uso:"",resp:""}))}]};
+         else { nc=JSON.parse(JSON.stringify(casa(m))); nc.id=uid("c"); nc.nome=nome; nc.pessoas.forEach(p=>p.id=uid("p")); nc.quadros.forEach(q=>q.id=uid("q")); }
+         S.casas.push(nc); save(); closeSheet(); go({v:"casa",id:nc.id}); }; }),
+  "menu-casa":()=>{ const c=casa(cur().id);
+     sheet(c.nome,`<p class="label" style="margin:0">Nome da casa</p><input id="n" value="${esc(c.nome)}">`,
+      `<button class="btn block" id="ok">Salvar nome</button><button class="btn danger block" id="del">Apagar casa</button>`, el=>{
+        el.querySelector("#ok").onclick=()=>{ c.nome=el.querySelector("#n").value.trim()||c.nome; save(); closeSheet(); render(); };
+        el.querySelector("#del").onclick=()=>confirmar(`Apagar “${c.nome}” e todas as folhas dela?`,"Apagar casa",()=>{ S.casas=S.casas.filter(x=>x!==c); save(); back(); }); }); },
+  "nova-pessoa":()=>sheetPessoa(casa(cur().id),null),
+  pessoa:b=>go({v:"pessoa",casa:cur().id,id:b.dataset.id}),
+  quadro:b=>go({v:"quadro",casa:cur().id,id:b.dataset.id}),
+  imprimir:()=>go({v:"imprimir",id:cur().id}),
+  "imprimir-pessoa":()=>{ const c=casa(cur().casa); go({v:"imprimir",id:c.id,i:c.pessoas.findIndex(x=>x.id===cur().id)}); },
+  dia:b=>{ ui.dia=+b.dataset.d; render(); },
+  "add-tarefas":()=>{ const c=casa(cur().casa); sheetTarefas(c,c.pessoas.find(x=>x.id===cur().id)); },
+  destaque:b=>{ const p=P(); const t=p.tarefas[ui.dia][+b.dataset.i]; t.d=!t.d; save(); render(); },
+  subir:b=>{ const l=P().tarefas[ui.dia]; const i=+b.dataset.i; if(i>0){ [l[i-1],l[i]]=[l[i],l[i-1]]; save(); render(); } },
+  tirar:b=>{ const l=P().tarefas[ui.dia]; const i=+b.dataset.i; const t=l.splice(i,1)[0]; save(); render(); toast(`Tirada de ${ABREV[ui.dia]}: “${t.t.slice(0,40)}${t.t.length>40?"…":""}”`); },
+  "copiar-dia":()=>{ const p=P(); const alvo=[]; const from=ui.dia;
+     sheet(`Copiar ${DIAS[from]}`, `${weekPicker(alvo,"wk")}`,
+      `<button class="btn block" id="ok">Copiar</button>`, el=>{ bindWeek(el,"wk",alvo);
+        el.querySelector("#ok").onclick=()=>{ let n=0; alvo.filter(d=>d!==from).forEach(d=>{ if(!p.dias.includes(d)) p.dias.push(d); const l=(p.tarefas[d] ||= []);
+          (p.tarefas[from]||[]).forEach(t=>{ if(!l.some(x=>x.t.toLowerCase()===t.t.toLowerCase())){ l.push({...t}); n++; } }); });
+          p.dias.sort(); save(); closeSheet(); render(); toast(`${n} tarefas copiadas.`); }; }); },
+  "rotulo-dia":()=>{ const p=P(); const d=ui.dia;
+     sheet("Observação do dia",`<input id="r" value="${esc(p.rotulos?.[d]||"")}" placeholder="Ex.: manhã">`,
+      `<button class="btn block" id="ok">Salvar</button>`, el=>el.querySelector("#ok").onclick=()=>{ p.rotulos ||= {}; const v=el.querySelector("#r").value.trim(); v?p.rotulos[d]=v:delete p.rotulos[d]; save(); closeSheet(); render(); }); },
+  "menu-pessoa":()=>{ const c=casa(cur().casa), p=P();
+     sheet(nomePessoa(p),"",`<button class="btn block" id="fd">Função e dias</button><button class="btn ghost block" id="dup">Duplicar esta pessoa</button><button class="btn danger block" id="del">Apagar folha</button>`, el=>{
+       el.querySelector("#fd").onclick=()=>sheetPessoa(c,p);
+       el.querySelector("#dup").onclick=()=>{ const np=JSON.parse(JSON.stringify(p)); np.id=uid("p"); np.ident=(p.ident?p.ident+" ":"")+"(cópia)"; c.pessoas.splice(c.pessoas.indexOf(p)+1,0,np); save(); closeSheet(); stack.pop(); go({v:"pessoa",casa:c.id,id:np.id}); toast("Cópia criada. Ajuste a função, os dias e as tarefas."); };
+       el.querySelector("#del").onclick=()=>confirmar(`Apagar a folha de ${nomePessoa(p)}?`,"Apagar folha",()=>{ c.pessoas=c.pessoas.filter(x=>x!==p); save(); back(); }); }); },
+  "item-quadro":b=>{ const c=casa(cur().casa), q=c.quadros.find(x=>x.id===cur().id), it=q.itens[+b.dataset.i];
+     const opcoes=["Todas",...new Set(c.pessoas.map(p=>funcao(p.funcao)?.nome))];
+     sheet("Cor do quadro",`<p class="label" style="margin:0">Uso</p><input id="u" value="${esc(it.uso)}" placeholder="Ex.: Piso banheiro">
+       <p class="label">Função responsável</p><div class="chips" id="rs">${opcoes.map(o=>`<button class="chip" data-r="${esc(o)}">${esc(o)}</button>`).join("")}</div>
+       <input id="r" value="${esc(it.resp)}" placeholder="Ou escreva: Arrumadeira e Babás">
+       <p class="label">Cor</p><input id="cor" type="color" value="${it.cor}" style="height:52px;padding:4px">`,
+      `<button class="btn block" id="ok">Salvar</button><button class="btn danger block" id="del">Tirar esta cor</button>`, el=>{
+        el.querySelectorAll("#rs .chip").forEach(x=>x.onclick=()=>{ const r=el.querySelector("#r"); const v=x.dataset.r; r.value = r.value && !r.value.includes(v) && v!=="Todas" ? r.value+" e "+v : v; });
+        el.querySelector("#ok").onclick=()=>{ it.uso=el.querySelector("#u").value.trim(); it.resp=el.querySelector("#r").value.trim(); it.cor=el.querySelector("#cor").value.toUpperCase(); save(); closeSheet(); render(); };
+        el.querySelector("#del").onclick=()=>{ q.itens.splice(+b.dataset.i,1); save(); closeSheet(); render(); }; }); },
+  "nova-cor":()=>{ const c=casa(cur().casa), q=c.quadros.find(x=>x.id===cur().id); q.itens.push({cor:"#FFFFFF",uso:"",resp:""}); save(); render(); },
+  aba:b=>{ ui.aba=b.dataset.x; render(); },
+  "edit-tarefa-banco":b=>{ const t=S.tarefas.find(x=>x.id===b.dataset.id);
+     sheet("Tarefa do banco",`<textarea id="t" rows="3">${esc(t.texto)}</textarea>`,`<button class="btn block" id="ok">Salvar</button><button class="btn danger block" id="del">Apagar do banco</button>`, el=>{
+       el.querySelector("#ok").onclick=()=>{ t.texto=el.querySelector("#t").value.trim()||t.texto; save(); closeSheet(); render(); };
+       el.querySelector("#del").onclick=()=>{ S.tarefas=S.tarefas.filter(x=>x!==t); save(); closeSheet(); render(); }; }); },
+  "nova-tarefa-banco":()=>sheet("Nova tarefa",`<textarea id="t" rows="3" placeholder="Ex.: Regar as plantas da varanda"></textarea>`,`<button class="btn block" id="ok">Guardar no banco</button>`,
+     el=>el.querySelector("#ok").onclick=()=>{ noBanco(el.querySelector("#t").value); save(); closeSheet(); render(); }),
+  "edit-funcao":b=>{ const f=S.funcoes.find(x=>x.id===b.dataset.id);
+     sheet("Função",`<input id="n" value="${esc(f.nome)}">`,`<button class="btn block" id="ok">Salvar</button><button class="btn danger block" id="del">Apagar função</button>`, el=>{
+       el.querySelector("#ok").onclick=()=>{ f.nome=el.querySelector("#n").value.trim()||f.nome; save(); closeSheet(); render(); };
+       el.querySelector("#del").onclick=()=>{ const usando=S.casas.some(c=>c.pessoas.some(p=>p.funcao===f.id));
+         if(usando){ toast("Essa função está em uso numa folha. Troque a função da folha antes de apagar."); return; }
+         S.funcoes=S.funcoes.filter(x=>x!==f); save(); closeSheet(); render(); }; }); },
+  "nova-funcao":()=>sheet("Nova função",`<input id="n" placeholder="Ex.: Governanta, Copeira">`,`<button class="btn block" id="ok">Guardar</button>`,
+     el=>el.querySelector("#ok").onclick=()=>{ const n=el.querySelector("#n").value.trim(); if(n) S.funcoes.push({id:uid("f"),nome:n}); save(); closeSheet(); render(); }),
+  folha:b=>{ ui.i=+b.dataset.i; render(); },
+  pdf:()=>{ const c=casa(cur().id); const folhas=listaFolhas(c); const f=folhas[ui.i];
+     sheet("Compartilhar","",`<button class="btn block" id="uma">Só esta folha</button><button class="btn ghost block" id="todas">Todas as folhas (${folhas.length})</button>`, el=>{
+       el.querySelector("#uma").onclick=()=>{ closeSheet(); compartilharPDF(c,[f], nomeArq(c, f)); };
+       el.querySelector("#todas").onclick=()=>{ closeSheet(); compartilharPDF(c,folhas, nomeArq(c)); }; }); }
+};
+function P(){ const c=casa(cur().casa); return c.pessoas.find(x=>x.id===cur().id); }
+
+
+/* ============ Ajuste, PDF, compartilhar e backup ============ */
+function listaFolhas(c){ return [...c.pessoas.map(p=>({tipo:"p",p})), ...c.quadros.map(q=>({tipo:"q",q}))]; }
+/* Reduz a letra até tudo caber numa página A4 */
+function ajustar(tbl){
+  let fs=12.5;
+  const fits=()=>[...tbl.querySelectorAll(".td-t")].every(td=>td.scrollHeight<=td.clientHeight+1) && tbl.scrollHeight<=tbl.clientHeight+1;
+  const apply=()=>tbl.querySelectorAll(".td-t").forEach(td=>td.style.fontSize=fs+"px");
+  apply(); while(!fits() && fs>7){ fs-=0.25; apply(); }
+  return {fs, ok:fits()};
+}
+const semAcento = s => s.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"");
+function nomeArq(c,f){ const base="Rotinas_"+semAcento(c.nome); if(!f) return base+".pdf";
+  return base+"_"+semAcento(f.tipo==="p"?nomePessoa(f.p):f.q.nome)+".pdf"; }
+
+let ocupado=false;
+async function compartilharPDF(c, folhas, nome){
+  if(ocupado) return; ocupado=true; toast("Preparando o PDF…");
+  try{
+    await document.fonts?.ready;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({unit:"mm", format:"a4", orientation:"portrait"});
+    const box=document.createElement("div"); box.style.cssText="position:fixed;left:-10000px;top:0;width:794px";
+    document.body.appendChild(box);
+    for(let k=0;k<folhas.length;k++){
+      const f=folhas[k];
+      box.innerHTML = f.tipo==="p" ? paperPessoa(c,f.p) : paperQuadro(c,f.q);
+      const paper=box.firstElementChild; paper.removeAttribute("id"); paper.style.boxShadow="none";
+      const tbl=paper.querySelector(".tbl"); if(tbl) ajustar(tbl);
+      await Promise.all([...paper.querySelectorAll("img")].map(im=>im.complete?0:new Promise(r=>{im.onload=im.onerror=r;})));
+      const canvas = await html2canvas(paper,{scale:2.5, backgroundColor:"#ffffff", useCORS:true, logging:false});
+      if(k>0) pdf.addPage("a4","portrait");
+      pdf.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297);
+    }
+    box.remove();
+    const blob=pdf.output("blob");
+    await enviarArquivo(new File([blob], nome, {type:"application/pdf"}), nome);
+  }catch(e){ console.error(e); toast("Não consegui gerar o PDF. Tente de novo."); }
+  finally{ ocupado=false; }
+}
+/* Abre o compartilhar do Android; se não houver, baixa o arquivo */
+async function enviarArquivo(file, nome){
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:nome}); return; }
+    catch(e){ if(e.name==="AbortError") return; }
+  }
+  const url=URL.createObjectURL(file); const a=document.createElement("a"); a.href=url; a.download=nome;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+  toast("Arquivo salvo em Downloads.");
+}
+function fazerBackup(){
+  const hoje=new Date().toISOString().slice(0,10);
+  const dados={app:"rotinas-luci", versao:1, data:hoje, ...S};
+  const nome=`Rotinas_backup_${hoje}.json`;
+  enviarArquivo(new File([JSON.stringify(dados)], nome, {type:"application/json"}), nome);
+}
+/* Junta o backup ao que já existe: casas de mesmo código são substituídas, bancos são somados */
+function restaurarBackup(b){
+  if(!b || b.app!=="rotinas-luci" || !Array.isArray(b.casas)) throw new Error("formato");
+  const nCasas=b.casas.length;
+  confirmar(`Restaurar ${nCasas} ${nCasas===1?"casa":"casas"} deste backup? Casas com o mesmo nome neste celular serão substituídas.`,"Restaurar",()=>{
+    (b.funcoes||[]).forEach(f=>{ const ex=S.funcoes.find(x=>x.id===f.id); if(!ex) S.funcoes.push(f); else if(ex.nome!==f.nome && !S.funcoes.some(x=>x.nome===f.nome)) S.funcoes.push({...f,id:uid("f")}); });
+    (b.tarefas||[]).forEach(t=>noBanco(t.texto));
+    b.casas.forEach(c=>{ c.pessoas.forEach(p=>{ const fb=(b.funcoes||[]).find(x=>x.id===p.funcao); if(fb){ const loc=S.funcoes.find(x=>x.nome===fb.nome); if(loc) p.funcao=loc.id; } });
+      const i=S.casas.findIndex(x=>x.id===c.id||x.nome===c.nome); if(i>=0) S.casas[i]=c; else S.casas.push(c); });
+    save(); stack=[{v:"casas"}]; render(); toast("Backup restaurado.");
+  });
+}
+/* Pede ao Android para não apagar os dados do app */
+try{ navigator.storage?.persist?.(); }catch(e){}
+if("serviceWorker" in navigator){ addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{})); }
+
+/* ============ Render ============ */
+const app=document.getElementById("app");
+function render(){
+  const v=cur().v;
+  app.innerHTML = ({casas:vCasas,casa:vCasa,pessoa:vPessoa,quadro:vQuadro,bancos:vBancos,imprimir:vImprimir})[v]();
+  if(v==="imprimir") requestAnimationFrame(fitPaper);
+  const busca=document.getElementById("busca-banco");
+  if(busca){ busca.oninput=e=>{ ui.q=e.target.value; const pos=e.target.selectionStart; render(); const nb=document.getElementById("busca-banco"); nb.focus(); nb.setSelectionRange(pos,pos); }; }
+}
+app.addEventListener("click",e=>{ const b=e.target.closest("[data-a]"); if(!b||b.disabled) return; const fn=A[b.dataset.a]; if(fn) fn(b); });
+addEventListener("resize",()=>{ if(cur().v==="imprimir") fitPaper(); });
+document.fonts?.ready?.then(()=>{ if(cur().v==="imprimir") fitPaper(); });
+render();
+</script>
+
+</body>
+</html>
